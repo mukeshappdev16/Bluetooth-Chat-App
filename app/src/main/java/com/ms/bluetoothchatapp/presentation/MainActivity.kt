@@ -9,9 +9,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -37,52 +40,57 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BluetoothChatAppTheme {
+                val snackbarHostState = remember { SnackbarHostState() }
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
                 ) { permissionsMap ->
                     val isGranted = permissionsMap.values.all { it }
-                    if (isGranted) {
-                        println("Permissions granted")
+                    if (!isGranted) {
+                        // Handle permission denied
                     }
                 }
 
-                LaunchedEffect(key1 = true) {
+                LaunchedEffect(Unit) {
                     if (!permissionManager.hasAllBluetoothPermissions()) {
                         permissionLauncher.launch(permissionManager.getRequiredBluetoothPermissions())
                     }
                 }
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    snackbarHost = { SnackbarHost(snackbarHostState) }
+                ) { innerPadding ->
                     val navController = rememberNavController()
                     NavHost(
                         navController = navController,
-                        startDestination = NavDestination.Search
+                        startDestination = NavDestination.Search,
+                        modifier = Modifier.padding(innerPadding)
                     ) {
                         composable<NavDestination.Search> {
                             val searchViewModel = hiltViewModel<SearchViewModel>()
-                            val pairedDevices by searchViewModel.pairedDevices.collectAsState()
-                            val scannedDevices by searchViewModel.scannedDevices.collectAsState()
-                            val isDiscovering by searchViewModel.isDiscovering.collectAsState()
-                            SearchBluetoothDevices(
-                                modifier = Modifier.padding(innerPadding),
-                                isDiscovering = isDiscovering,
-                                pairedDevices = pairedDevices,
-                                newDevices = scannedDevices,
-                                onStartDiscovery = {
-                                    searchViewModel.startDiscovery()
-                                },
-                                onStopDiscovery = {
-                                    searchViewModel.stopDiscovery()
-                                }) {
-                                // Handle device click
+                            val state by searchViewModel.state.collectAsState()
+
+                            LaunchedEffect(Unit) {
+                                searchViewModel.errors.collect { message ->
+                                    snackbarHostState.showSnackbar(message)
+                                }
                             }
+
+                            SearchBluetoothDevices(
+                                isDiscovering = state.isDiscovering,
+                                pairedDevices = state.pairedDevices,
+                                newDevices = state.scannedDevices,
+                                onStartDiscovery = searchViewModel::startDiscovery,
+                                onStopDiscovery = searchViewModel::stopDiscovery,
+                                onDeviceClick = {
+                                    // Handle device click
+                                }
+                            )
                         }
                         composable<NavDestination.Chat> {
-                            ChatScreen(modifier = Modifier.padding(innerPadding))
+                            ChatScreen()
                         }
                     }
-
-
                 }
             }
         }
@@ -92,8 +100,8 @@ class MainActivity : ComponentActivity() {
 @Serializable
 sealed class NavDestination {
     @Serializable
-    object Search : NavDestination()
+    data object Search : NavDestination()
 
     @Serializable
-    class Chat : NavDestination()
+    data object Chat : NavDestination()
 }
