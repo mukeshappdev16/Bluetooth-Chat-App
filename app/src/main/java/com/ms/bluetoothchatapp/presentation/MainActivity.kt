@@ -22,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ms.bluetoothchatapp.common.PermissionManager
 import com.ms.bluetoothchatapp.presentation.screens.ChatScreen
+import com.ms.bluetoothchatapp.presentation.screens.ChatViewModel
 import com.ms.bluetoothchatapp.presentation.screens.SearchBluetoothDevices
 import com.ms.bluetoothchatapp.presentation.screens.SearchViewModel
 import com.ms.bluetoothchatapp.ui.theme.BluetoothChatAppTheme
@@ -67,28 +68,42 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable<NavDestination.Search> {
-                            val searchViewModel = hiltViewModel<SearchViewModel>()
-                            val state by searchViewModel.state.collectAsState()
+                            val viewModel = hiltViewModel<SearchViewModel>()
+                            val state by viewModel.state.collectAsState()
 
-                            LaunchedEffect(Unit) {
-                                searchViewModel.errors.collect { message ->
-                                    snackbarHostState.showSnackbar(message)
+                            LaunchedEffect(state.isConnected) {
+                                if (state.isConnected) {
+                                    navController.navigate(NavDestination.Chat)
                                 }
                             }
 
                             SearchBluetoothDevices(
                                 isDiscovering = state.isDiscovering,
+                                isConnecting = state.isConnecting,
                                 pairedDevices = state.pairedDevices,
                                 newDevices = state.scannedDevices,
-                                onStartDiscovery = searchViewModel::startDiscovery,
-                                onStopDiscovery = searchViewModel::stopDiscovery,
-                                onDeviceClick = {
-                                    // Handle device click
-                                }
+                                onStartDiscovery = viewModel::startDiscovery,
+                                onStopDiscovery = viewModel::stopDiscovery,
+                                onStartServer = viewModel::startServer,
+                                onDeviceClick = viewModel::connectToDevice
                             )
                         }
                         composable<NavDestination.Chat> {
-                            ChatScreen()
+                            val viewModel = hiltViewModel<ChatViewModel>()
+                            val state by viewModel.state.collectAsState()
+
+                            LaunchedEffect(state.isConnected) {
+                                if (!state.isConnected) {
+                                    navController.popBackStack()
+                                }
+                            }
+
+                            ChatScreen(
+                                state = state,
+                                onDisconnect = viewModel::disconnect,
+                                onSendMessage = viewModel::sendMessage,
+                                onMessageChange = viewModel::onMessageChange
+                            )
                         }
                     }
                 }

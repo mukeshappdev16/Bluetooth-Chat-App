@@ -1,5 +1,6 @@
 package com.ms.bluetoothchatapp.presentation.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,10 +8,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ms.bluetoothchatapp.domain.model.BluetoothDeviceUI
@@ -20,101 +23,121 @@ import com.ms.bluetoothchatapp.domain.model.BluetoothDeviceUI
 fun SearchBluetoothDevices(
     modifier: Modifier = Modifier,
     isDiscovering: Boolean = false,
+    isConnecting: Boolean = false,
     pairedDevices: List<BluetoothDeviceUI> = emptyList(),
     newDevices: List<BluetoothDeviceUI> = emptyList(),
     onStartDiscovery: () -> Unit = {},
     onStopDiscovery: () -> Unit = {},
+    onStartServer: () -> Unit = {},
     onDeviceClick: (BluetoothDeviceUI) -> Unit = {}
 ) {
-    Scaffold(
-        modifier = modifier.fillMaxSize().padding(8.dp),
-        topBar = {
-            TopAppBar(
-                title = { Text("Bluetooth Discovery") },
-                actions = {
-                    if (isDiscovering) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        IconButton(onClick = onStartDiscovery) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = { Text("Bluetooth Chat") },
+                    actions = {
+                        if (isDiscovering) {
+                            IconButton(onClick = onStopDiscovery) {
+                                Icon(Icons.Default.Stop, contentDescription = "Stop Discovery")
+                            }
+                        } else {
+                            IconButton(onClick = onStartDiscovery) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            }
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (isDiscovering) "Searching for devices..." else "Ready to connect",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (isDiscovering) onStopDiscovery() else onStartDiscovery()
+                            },
+                            enabled = !isConnecting
+                        ) {
+                            Text(if (isDiscovering) "Stop Discovery" else "Start Discovery")
+                        }
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = onStartServer,
+                            enabled = !isConnecting
+                        ) {
+                            Text("Start Server")
                         }
                     }
                 }
-            )
-        },
-        bottomBar = {
-            Column(
+            }
+        ) { innerPadding ->
+            LazyColumn(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                Text(
-                    text = if (isDiscovering) "Searching for devices..." else "Click button to search for devices",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        modifier = Modifier.weight(1f),
-                        onClick = onStartDiscovery,
-                        enabled = !isDiscovering
-                    ) {
-                        Text(if (isDiscovering) "Searching..." else "Start Discovery")
+                // Paired Devices Section
+                if (pairedDevices.isNotEmpty()) {
+                    item {
+                        SectionHeader("Paired Devices")
                     }
-                    Button(
-                        modifier = Modifier.weight(1f),
-                        onClick = onStopDiscovery,
-                        enabled = isDiscovering
-                    ) {
-                        Text("Stop Discovery")
+                    items(pairedDevices) { device ->
+                        DeviceListItem(
+                            device = device,
+                            onClick = { onDeviceClick(device) }
+                        )
+                    }
+                }
+
+                // New Devices Section
+                item {
+                    SectionHeader("New Devices")
+                }
+
+                if (newDevices.isEmpty() && !isDiscovering) {
+                    item {
+                        EmptyStatePlaceholder("No new devices found")
+                    }
+                } else {
+                    items(newDevices) { device ->
+                        DeviceListItem(
+                            device = device,
+                            onClick = { onDeviceClick(device) }
+                        )
                     }
                 }
             }
         }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            // Paired Devices Section
-            if (pairedDevices.isNotEmpty()) {
-                item {
-                    SectionHeader("Paired Devices")
-                }
-                items(pairedDevices) { device ->
-                    DeviceListItem(
-                        device = device,
-                        onClick = { onDeviceClick(device) }
-                    )
-                }
-            }
 
-            // New Devices Section
-            item {
-                SectionHeader("New Devices")
-            }
-
-            if (newDevices.isEmpty() && !isDiscovering) {
-                item {
-                    EmptyStatePlaceholder("No new devices found")
-                }
-            } else {
-                items(newDevices) { device ->
-                    DeviceListItem(
-                        device = device,
-                        onClick = { onDeviceClick(device) }
-                    )
+        if (isConnecting) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Connecting...", color = Color.White)
                 }
             }
         }

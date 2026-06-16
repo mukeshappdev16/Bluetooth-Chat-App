@@ -5,8 +5,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import androidx.annotation.RequiresPermission
-import com.ms.bluetoothchatapp.data.BluetoothDiscoveryManager
-import com.ms.bluetoothchatapp.domain.discovery.DiscoveryManager
+import com.ms.bluetoothchatapp.data.AndroidBluetoothController
+import com.ms.bluetoothchatapp.domain.chat.BluetoothController
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -28,10 +28,10 @@ object BluetoothModule {
     @Provides
     @Singleton
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun provideDiscoveryManager(
+    fun provideBluetoothController(
         @ApplicationContext context: Context,
         bluetoothAdapter: BluetoothAdapter?
-    ): DiscoveryManager {
-        return BluetoothDiscoveryManager(context, bluetoothAdapter)
+    ): BluetoothController {
+        return AndroidBluetoothController(context, bluetoothAdapter)
     }
 }
